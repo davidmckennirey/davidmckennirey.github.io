@@ -1,5 +1,5 @@
 ---
-title: "Welcome to my Blog."
+title: "New Beginnings"
 date: 2021-04-30 00:00:00 -0000
 categories:
   - off-topic
@@ -7,6 +7,8 @@ tags:
   - off-topic
   - update
 ---
+
+Welcome to my blog! 
 
 ```python
 def welcome():
@@ -16,7 +18,7 @@ if __name__ == '__main__':
   welcome()
 ```
 
-Welcome to my blog! I'm creating this blog for two reasons - accountability and note-taking. I am currently scheduled to take my 1st OSCP attempt in around a month, and I plan on going through TJNull's excellent [list of OSCP-like HackTheBox machines][htb-list] as practice.
+I'm creating this blog for two reasons - accountability and note-taking. I am currently scheduled to take my 1st OSCP attempt in around a month, and I plan on going through TJNull's excellent [list of OSCP-like HackTheBox machines][htb-list] as practice.
 
 But practice doesn't mean anything if you don't actually *learn* anything, and I have a bad habit of forgetting everything I learned as soon as I root a box. So I have decided that I will be posting a write-up to this blog for every box that root. This way I have to really force myself to really understand how I got that root shell, and keep that information in my head long enough to write a blog post about it. It will also provide a convient reference if I find myself in a similar situation again in the future. 
 

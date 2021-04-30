@@ -22,6 +22,7 @@ github_username: davidmckennirey
 minimal_mistakes_skin: default
 search: true
 words_per_minute: 200
+repository: davidmckennirey/davidmckennirey.github.io
 
 # Build settings
 markdown: kramdown
