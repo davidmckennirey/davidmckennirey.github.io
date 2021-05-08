@@ -12,7 +12,7 @@ tags:
 For the my next OSCP-prep box (again curtesy of TJNull's excellent [list of OSCP-like HackTheBox machines][htb-list]) I decided to choose a Windows machine. I picked the first from the list that I hadn't already attempted, Granny.
 
 ## Phase 1: Enumeration
-Just like with shocker, I being by kicking off [AutoRecon][autorecon] on the target.
+Just like with shocker, I begin by kicking off [AutoRecon][autorecon] on the target.
 
 ```bash
 autorecon -o granny --single-target 10.10.10.15
@@ -148,8 +148,8 @@ msf6 exploit(multi/handler) > [*] Command shell session 11 opened (10.10.14.14:4
 
 Booyah.
 
-## Phase 2: Privilege Escalation
-I wanted to do this exploit with using meterpreter or metasploit, but sadly my shell kept dying. I switched to meterpreter for more stability.
+## Phase 3: Privilege Escalation
+I wanted to do this box with using meterpreter or metasploit, but sadly my shell kept dying. I switched to meterpreter for more stability.
 
 ```
 meterpreter > getuid
