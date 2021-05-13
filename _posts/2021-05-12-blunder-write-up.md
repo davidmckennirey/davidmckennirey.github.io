@@ -1,5 +1,5 @@
 ---
-title: "HTB: Magic Write-up"
+title: "HTB: Blunder Write-up"
 date: 2021-05-12 00:00:00 -0000
 categories:
   - HTB
@@ -7,6 +7,7 @@ tags:
   - HTB
   - linux
   - web
+  - python
 ---
 
 I decided to go back to Linux for my next challenge box from TJNull's [list of OSCP-like HackTheBox machines][htb-list]. This is also the first box from the list that HTB ranked "Medium" so it should bring a nice challenge.
@@ -51,7 +52,7 @@ Bludit is already installed ;)
 
 Which is confirmed by visiting the `admin` endpoint, which displays a login form for a Bludit administrative portal.
 
-![](/assets/images/HTB/blunder/login.png)
+![Blundit Login](/assets/images/HTB/blunder/login.png)
 
 ## Phase 2: Getting Credentials
 
