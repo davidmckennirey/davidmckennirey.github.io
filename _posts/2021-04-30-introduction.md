@@ -8,7 +8,7 @@ tags:
   - update
 ---
 
-Welcome to my blog! 
+Welcome to my blog!
 
 ```python
 def welcome():

