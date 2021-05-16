@@ -1,6 +1,6 @@
 ---
 title: "HTB: Magic Write-up"
-date: 2021-05-13 00:00:00 -0000
+date: 2021-05-16 00:00:00 -0000
 categories:
   - HTB
 tags:
