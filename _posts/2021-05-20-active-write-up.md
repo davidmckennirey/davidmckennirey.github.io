@@ -1,12 +1,13 @@
 ---
-title: "HTB: Magic Write-up"
-date: 2021-05-17 00:00:00 -0000
+title: "HTB: Active Write-up"
+date: 2021-05-20 00:00:00 -0000
 categories:
   - HTB
 tags:
   - HTB
   - windows
   - active directory
+  - SMB
 ---
 
 Going back to Windows for my next challenge box from TJNull's [list of OSCP-like HackTheBox machines][htb-list]. "Active" is a Windows machine which involves some Active Directory based exploitation.
