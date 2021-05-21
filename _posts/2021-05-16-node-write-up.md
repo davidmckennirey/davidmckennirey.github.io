@@ -1,5 +1,5 @@
 ---
-title: "HTB: Magic Write-up"
+title: "HTB: Node Write-up"
 date: 2021-05-16 00:00:00 -0000
 categories:
   - HTB
