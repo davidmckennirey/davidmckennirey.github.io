@@ -10,7 +10,7 @@ tags:
   - python
 ---
 
-I decided to go back to Linux for my next challenge box from TJNull's [list of OSCP-like HackTheBox machines][htb-list]. This is also the first box from the list that HTB ranked "Medium" so it should bring a nice challenge.
+Sticking with Linux for my next box from TJNull's [list of OSCP-like HackTheBox machines][htb-list], today I am working on Blunder.
 
 ## Phase 1: Enumeration
 
