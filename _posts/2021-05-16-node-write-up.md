@@ -135,8 +135,8 @@ const backup_key  = '45fac180e9eee72f4fd2d9386ea7033e52b7c740afc3d98a8d023016710
 
 Lets try the DB connection credentials (mark:5AYRft73VtFpc84k) on SSH.
 
-```
-ssh mark@10.10.10.58
+```bash
+$ ssh mark@10.10.10.58
 The authenticity of host '10.10.10.58 (10.10.10.58)' can't be established.
 ECDSA key fingerprint is SHA256:I0Y7EMtrkyc9Z/92jdhXQen2Y8Lar/oqcDNLHn28Hbs.
 Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
