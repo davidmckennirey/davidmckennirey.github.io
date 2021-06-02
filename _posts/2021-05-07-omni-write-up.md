@@ -9,7 +9,7 @@ tags:
   - Powershell
 ---
 
-The next box I picked from TJNull's [list of OSCP-like HackTheBox machines][htb-list]) was the Windows box Omni. As an aside, this box was pretty frustrating because it had ridiculous latency whenever I tried to connect to it. Even though I was playing on a VIP server where I was the only one attacking the box, all my commands took on the order of minutes to execute and frequently my connections timed out.
+The next box I picked from TJNull's [list of OSCP-like HackTheBox machines][htb-list] was the Windows box Omni. As an aside, this box was pretty frustrating because it had ridiculous latency whenever I tried to connect to it. Even though I was playing on a VIP server where I was the only one attacking the box, all my commands took on the order of minutes to execute and frequently my connections timed out.
 
 ## Phase 1: Enumeration
 
