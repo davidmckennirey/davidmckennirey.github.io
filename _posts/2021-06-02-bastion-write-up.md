@@ -124,7 +124,7 @@ $ smbmap -u null -p "" -H 10.10.10.134 -P 445 -R --depth=20
 
 ### Mounting the Backup
 
-Judging from the 'WindowsImageBackup' folder, I am assuming this is some sort of windows backup that is exposed. Furthermore, there is a `.vhd` file in the share, which stands for "Virtual Hard Disk". This is one popular format for full disk backups, and it is definitely worth inspecting. I want to mount the `.vhd` file, but I don't want to pull it down locally through the HTB VPN, so I am going to mount the SMB share.
+Judging from the 'WindowsImageBackup' folder, I am assuming this is some sort of windows backup that is exposed. Furthermore, there is a `.vhd` file in the share, which stands for "Virtual Hard Disk". This is a format for full disk backups and is definitely worth inspecting. I want to mount the `.vhd` file without pulling it down locally through the HTB VPN, so I am going to mount the SMB share.
 
 ```bash
 mount -t cifs //10.10.10.134/Backups ./mountpoint -o user=,password=,rw
@@ -185,7 +185,7 @@ dpapi_userkey:0xd2e02883757da99914e3138496705b223e9d03dd
 [*] Cleaning up...
 ```
 
-`secretsdump.py` actually found a password 'bureaulampje', but we don't know what it belongs to. Lets throw these hashes into JtR to see if it was able to get anything from them.
+`secretsdump.py` found that the default password is 'bureaulampje', but let's throw these hashes into JtR to see if it was able to get anything from them.
 
 ```bash
 $ john --wordlist=/usr/share/seclists/Passwords/Leaked-Databases/rockyou.txt hashes.txt --format=NT
@@ -203,7 +203,7 @@ Session completed
 
 ### Validating The Password
 
-So it seems like the password that `secretsdump.py` found was actually the password for the 'L4mpje' user. We can quickly confirm this using any number of tools, but I'm going to use my favorite windows exploitation swiss army knife, [CrackMapExec][cme].
+So it seems like the default password that `secretsdump.py` found was actually the password for the 'L4mpje' user. We can quickly confirm this using any number of tools, but I'm going to use my favorite windows exploitation swiss army knife, [CrackMapExec][cme].
 
 ```bash
 $ cme smb 10.10.10.134 -u 'L4mpje' -p 'bureaulampje'
@@ -351,7 +351,7 @@ administrator@BASTION C:\Users\Administrator>whoami
 bastion\administrator
 ```
 
-And we have root! Thanks for reading, sorry for the delay in getting this out but more are on the way.
+And we have root! Thanks for reading.
 
 [htb-list]: https://docs.google.com/spreadsheets/d/1dwSMIAPIam0PuRBkCiDI88pU3yzrqqHkDtBngUHNCw8/edit#gid=1839402159
 [autorecon]: https://github.com/Tib3rius/AutoRecon

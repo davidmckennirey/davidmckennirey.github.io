@@ -13,7 +13,7 @@ Continuing with Linux for my next challenge box from TJNull's [list of OSCP-like
 
 ## Phase 1: Enumeration
 
-Step 1: Kick off [AutoRecon][autorecon]
+Step 1: Kick off [AutoRecon][autorecon].
 
 ```bash
 autorecon -o node --single-target 10.10.10.58 
@@ -25,7 +25,7 @@ While that was running I tried to browse to <http://10.10.10.191/> and found a s
 ffuf -u http://10.10.10.58:3000/FUZZ -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -e .php,.txt -of csv -o ./medium.csv -fs 3861
 ```
 
-I needed to use the `-fs` flag to filter responses with 3861 bytes, because the application would respond with that instead of the standard 404. I also browsed to the webserver on tcp 3000 while proxying my traffic with Burp Suite. After clicking on everything I could click on, I saw some interesting `/api` endpoints in the target tab.
+I needed to use the `-fs` flag to filter responses with 3861 bytes, because the application would respond with a 200 response of that length instead of the standard 404. I also browsed to the webserver on tcp 3000 while proxying my traffic with Burp Suite. After clicking on everything I could click on, I saw some interesting `/api` endpoints in the target tab.
 
 ```txt
 /api/users/latest
@@ -63,7 +63,7 @@ Looks like we got credentials for every account except "rastating". I was able t
 
 Once authenticated, the application lets us perform a backup of the site. If we click the "Download Backup" button, then an API call is made to `/api/admin/backup` which returns a large base64 encoded file with a `.backup` extension.
 
-![Requesting a Backup](/assets/images/HTB/node/auth.png)
+![Requesting a Backup](/assets/images/HTB/node/backup.png)
 
 Since this looks like a base64 encoded file, lets base64 decode it and see what kind of file this is.
 
@@ -85,7 +85,7 @@ password incorrect--reenter:
    skipping: var/www/myplace/package-lock.json  incorrect password
 ```
 
-Shoot, it looks like the zip is encrypted and none of the user's passwords were correct. Fortunately, our favorite CPU-based hash cracker (JtR) can crack zipped passwords. Kali linux has Jumbo-JtR installed by default, which includes the `zip2john` utility.
+The zip is encrypted and none of the user's passwords worked to unencrypt it. Fortunately, our favorite CPU-based hash cracker (JtR) can crack zipped passwords. Kali linux has Jumbo-JtR installed by default, which includes the `zip2john` utility.
 
 ```bash
 $ locate zip2john
@@ -133,7 +133,7 @@ const url         = 'mongodb://mark:5AYRft73VtFpc84k@localhost:27017/myplace?aut
 const backup_key  = '45fac180e9eee72f4fd2d9386ea7033e52b7c740afc3d98a8d0230167104d474';
 ```
 
-Lets try the DB connection credentials (mark:5AYRft73VtFpc84k) on SSH.
+Lets try the DB connection credentials (mark:5AYRft73VtFpc84k) to connect to the victim over SSH.
 
 ```bash
 $ ssh mark@10.10.10.58
@@ -143,40 +143,15 @@ Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
 Warning: Permanently added '10.10.10.58' (ECDSA) to the list of known hosts.
 mark@10.10.10.58's password:
 
-The programs included with the Ubuntu system are free software;
-the exact distribution terms for each program are described in the
-individual files in /usr/share/doc/*/copyright.
-
-Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
-applicable law.
-
-              .-.
-        .-'``(|||)
-     ,`\ \    `-`.                 88                         88
-    /   \ '``-.   `                88                         88
-  .-.  ,       `___:      88   88  88,888,  88   88  ,88888, 88888  88   88
- (:::) :        ___       88   88  88   88  88   88  88   88  88    88   88
-  `-`  `       ,   :      88   88  88   88  88   88  88   88  88    88   88
-    \   / ,..-`   ,       88   88  88   88  88   88  88   88  88    88   88
-     `./ /    .-.`        '88888'  '88888'  '88888'  88   88  '8888 '88888'
-        `-..-(   )
-              `-`
-
-
-
-
-The programs included with the Ubuntu system are free software;
-the exact distribution terms for each program are described in the
-individual files in /usr/share/doc/*/copyright.
-
-Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
-applicable law.
+...
 
 Last login: Wed Sep 27 02:33:14 2017 from 10.10.14.3
 mark@node:~$
 ```
 
 ## Phase 3: Becoming Tom
+
+I then began enumerating the box looking for privilege escalation vectors, including to see what services were listening on localhost.
 
 ```bash
 $ netstat -antp
@@ -207,7 +182,7 @@ pspy - version: v1.2.0 - Commit SHA: 9c63e5d6c58f7bcdc235db663f5e3fe1c33b8855
 2021/05/14 00:55:49 CMD: UID=1000 PID=1222   | /usr/bin/node /var/scheduler/app.js
 ```
 
-The scheduler app caught my attention, because I didn't know that another node app was running on this host. Also, its being run by the "tom" user, which could be another path to escalate privileges. Lets take a look at the `/var/scheduler/app.js` file.
+The scheduler app caught my attention, because I didn't know that another node application was running on this host. Also, its being run by the "tom" user, which could be another path to escalate privileges. Lets take a look at the `/var/scheduler/app.js` file.
 
 ```js
 const exec        = require('child_process').exec;

